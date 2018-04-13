@@ -103,36 +103,35 @@ class gnocchi::api (
     } else {
       $service_ensure = 'stopped'
     }
+
+    if $service_name == $::gnocchi::params::api_service_name {
+      service { 'gnocchi-api':
+        ensure     => $service_ensure,
+        name       => $::gnocchi::params::api_service_name,
+        enable     => $enabled,
+        hasstatus  => true,
+        hasrestart => true,
+        tag        => ['gnocchi-service', 'gnocchi-db-sync-service'],
+      }
+    } elsif $service_name == 'httpd' {
+      include ::apache::params
+      service { 'gnocchi-api':
+        ensure => 'stopped',
+        name   => $::gnocchi::params::api_service_name,
+        enable => false,
+        tag    => ['gnocchi-service', 'gnocchi-db-sync-service'],
+      }
+      Service <| title == 'httpd' |> { tag +> 'gnocchi-service' }
+
+      # we need to make sure gnocchi-api/eventlet is stopped before trying to start apache
+      Service['gnocchi-api'] -> Service[$service_name]
+    } else {
+      fail("Invalid service_name. Either gnocchi/openstack-gnocchi-api for running as a standalone service, or httpd for being run by a httpd server")
+    }
   }
 
   if $sync_db {
     include ::gnocchi::db::sync
-  }
-
-  if $service_name == $::gnocchi::params::api_service_name {
-    service { 'gnocchi-api':
-      ensure     => $service_ensure,
-      name       => $::gnocchi::params::api_service_name,
-      enable     => $enabled,
-      hasstatus  => true,
-      hasrestart => true,
-      tag        => ['gnocchi-service', 'gnocchi-db-sync-service'],
-    }
-  } elsif $service_name == 'httpd' {
-    include ::apache::params
-    service { 'gnocchi-api':
-      ensure => 'stopped',
-      name   => $::gnocchi::params::api_service_name,
-      enable => false,
-      tag    => ['gnocchi-service', 'gnocchi-db-sync-service'],
-    }
-    Service <| title == 'httpd' |> { tag +> 'gnocchi-service' }
-
-    # we need to make sure gnocchi-api/eventlet is stopped before trying to start apache
-    Service['gnocchi-api'] -> Service[$service_name]
-  } else {
-    fail("Invalid service_name. Either gnocchi/openstack-gnocchi-api for running as a \
-standalone service, or httpd for being run by a httpd server")
   }
 
   gnocchi_config {
