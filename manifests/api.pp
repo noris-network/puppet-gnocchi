@@ -104,6 +104,10 @@ class gnocchi::api (
       $service_ensure = 'stopped'
     }
 
+    if $sync_db {
+      include ::gnocchi::db::sync
+    }
+
     if $service_name == $::gnocchi::params::api_service_name {
       service { 'gnocchi-api':
         ensure     => $service_ensure,
@@ -115,6 +119,7 @@ class gnocchi::api (
       }
     } elsif $service_name == 'httpd' {
       include ::apache::params
+
       service { 'gnocchi-api':
         ensure => 'stopped',
         name   => $::gnocchi::params::api_service_name,
@@ -126,12 +131,9 @@ class gnocchi::api (
       # we need to make sure gnocchi-api/eventlet is stopped before trying to start apache
       Service['gnocchi-api'] -> Service[$service_name]
     } else {
-      fail("Invalid service_name. Either gnocchi/openstack-gnocchi-api for running as a standalone service, or httpd for being run by a httpd server")
+      fail("Invalid service_name. Either gnocchi/openstack-gnocchi-api for running as a \
+s  tandalone service, or httpd for being run by a httpd server")
     }
-  }
-
-  if $sync_db {
-    include ::gnocchi::db::sync
   }
 
   gnocchi_config {

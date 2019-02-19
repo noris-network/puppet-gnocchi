@@ -18,6 +18,31 @@ describe 'gnocchi::api' do
     }
   end
 
+  shared_examples_for 'gnocchi-api wsgi' do
+    context 'with gnocchi-api in wsgi' do
+      before do
+        params.merge!({ :service_name => 'httpd' })
+      end
+
+      let :pre_condition do
+        "include ::apache
+         include ::gnocchi::db
+         class { 'gnocchi': }
+         class { '::gnocchi::keystone::authtoken':
+           password => 'gnocchi-passw0rd',
+         }"
+      end
+
+      it 'installs gnocchi-api package' do
+        is_expected.to contain_package('gnocchi-api').with(
+          :ensure => 'latest',
+          :name   => platform_params[:api_package_name],
+          :tag    => ['openstack', 'gnocchi-package'],
+        )
+      end
+    end
+  end
+
   shared_examples_for 'gnocchi-api' do
 
     it { is_expected.to contain_class('gnocchi::deps') }
@@ -149,15 +174,16 @@ describe 'gnocchi::api' do
       end
 
       let(:platform_params) do
-        case facts[:osfamily]
-        when 'Debian'
-          { :api_package_name => 'gnocchi-api',
-            :api_service_name => 'gnocchi-api' }
-        when 'RedHat'
-          { :api_package_name => 'openstack-gnocchi-api',
-            :api_service_name => 'openstack-gnocchi-api' }
+        if facts[:operatingsystem] == 'Ubuntu' then
+          package_name = 'python-gnocchi'
+        else
+          package_name = 'gnocchi-api'
         end
+        { :api_package_name => package_name,
+          :api_service_name => 'gnocchi-api' }
       end
+
+      it_behaves_like 'gnocchi-api wsgi'
       it_behaves_like 'gnocchi-api'
     end
   end
